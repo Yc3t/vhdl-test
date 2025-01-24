@@ -1,214 +1,141 @@
-  1   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  2   0              ;                 
-  3   0              ; Higher/Lower Guessing Game
-  4   0              ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
-  5   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  1   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  2   0              ; Constants and Variables
+  3   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  4   0              :CONSTANT   RS232        FF           ; Serial port
+  5   0              :CONSTANT   MAX_ATTEMPTS 0A           ; Maximum attempts allowed
   6   0              
-  7   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  8   0              ; Constants and variables declaration
-  9   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                  
- 10   0              :CONSTANT   RS232        FF           ; UART port
- 11   0              
- 12   0              :NAMEREG    S0           TEMP         ; Temporary register
- 13   0              :NAMEREG    S1           TXREG        ; Transmission buffer
- 14   0              :NAMEREG    S2           RXREG        ; Reception buffer
- 15   0              :NAMEREG    S3           CONTBIT      ; Bit counter
- 16   0              :NAMEREG    S4           CONT1        ; Delay counter 1
- 17   0              :NAMEREG    S5           CONT2        ; Delay counter 2
- 18   0              :NAMEREG    S6           CURRENT      ; Current number
- 19   0              :NAMEREG    S7           NEXT         ; Next number
- 20   0              
- 21   0              :ADDRESS    00           ; Program starts at address 00
- 22   0              
- 23   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 24   0              ; Program start
- 25   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 26   0              :DISABLE    INTERRUPT    
- 27   1              
- 28   1 START        :LOAD       CURRENT      01           ; Initial number
- 29   2              
- 30   2 NEW_ROUND    
- 31   2              ; Send "Current: "
- 32   2              :LOAD       TXREG        43           ; 'C'
- 33   3              :CALL       TRANSMITE    
- 34   4              :LOAD       TXREG        75           ; 'u'
- 35   5              :CALL       TRANSMITE    
- 36   6              :LOAD       TXREG        72           ; 'r'
- 37   7              :CALL       TRANSMITE    
- 38   8              :LOAD       TXREG        3A           ; ':'
- 39   9              :CALL       TRANSMITE    
- 40   A              :LOAD       TXREG        20           ; Space
- 41   B              :CALL       TRANSMITE    
- 42   C              
- 43   C              ; Send current number
- 44   C              :LOAD       TXREG        CURRENT      
- 45   D              :ADD        TXREG        30           ; Convert to ASCII
- 46   E              :CALL       TRANSMITE    
- 47   F              :LOAD       TXREG        0D           ; CR
- 48  10              :CALL       TRANSMITE    
- 49  11              :LOAD       TXREG        0A           ; LF
- 50  12              :CALL       TRANSMITE    
- 51  13              
- 52  13              ; Generate next number
- 53  13              :LOAD       TEMP         CURRENT      
- 54  14              :ADD        TEMP         43           ; Some "random" operation
- 55  15              :AND        TEMP         07           ; Keep it within 0-7
- 56  16              :ADD        TEMP         01           ; Make it 1-8
- 57  17              :LOAD       NEXT         TEMP         
- 58  18              
- 59  18              ; Send prompt
- 60  18              :LOAD       TXREG        31           ; '1'
- 61  19              :CALL       TRANSMITE    
- 62  1A              :LOAD       TXREG        3D           ; '='
- 63  1B              :CALL       TRANSMITE    
- 64  1C              :LOAD       TXREG        48           ; 'H'
- 65  1D              :CALL       TRANSMITE    
- 66  1E              :LOAD       TXREG        20           ; Space
- 67  1F              :CALL       TRANSMITE    
- 68  20              :LOAD       TXREG        32           ; '2'
- 69  21              :CALL       TRANSMITE    
- 70  22              :LOAD       TXREG        3D           ; '='
- 71  23              :CALL       TRANSMITE    
- 72  24              :LOAD       TXREG        4C           ; 'L'
- 73  25              :CALL       TRANSMITE    
- 74  26              :LOAD       TXREG        3A           ; ':'
- 75  27              :CALL       TRANSMITE    
- 76  28              :LOAD       TXREG        20           ; Space
- 77  29              :CALL       TRANSMITE    
- 78  2A              
- 79  2A              :ENABLE     INTERRUPT    ; Wait for player input
- 80  2B              
- 81  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 82  2B              ; Main program loop
- 83  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 84  2B MAIN_LOOP    
- 85  2B              :LOAD       CONT1        FF           ; Some delay
- 86  2C LOOP1        :LOAD       CONT2        FF           
- 87  2D LOOP2        :SUB        CONT2        01           
- 88  2E              :JUMP       NZ           LOOP2        
- 89  2F              :SUB        CONT1        01           
- 90  30              :JUMP       NZ           LOOP1        
- 91  31              :JUMP       MAIN_LOOP    ; Loop forever
- 92  32              
- 93  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 94  32              ; Character reception routine
- 95  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 96  32 RECIBE       :INPUT      RXREG        RS232        
- 97  33              :AND        RXREG        80           
- 98  34              :JUMP       NZ           RECIBE       
- 99  35              :CALL       WAIT_05BIT   
-100  36              :LOAD       CONTBIT      09           
-101  37 NEXT_RX_BIT  
-102  37              :CALL       WAIT_1BIT    
-103  38              :SR0        RXREG        
-104  39              :INPUT      TEMP         RS232        
-105  3A              :AND        TEMP         80           
-106  3B              :OR         RXREG        TEMP         
-107  3C              :SUB        CONTBIT      01           
-108  3D              :JUMP       NZ           NEXT_RX_BIT  
-109  3E              :RETURN     
-110  3F              
-111  3F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-112  3F              ; Character transmission routine
-113  3F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-114  3F TRANSMITE    
-115  3F              :LOAD       TEMP         00           
-116  40              :OUTPUT     TEMP         RS232        
-117  41              :CALL       WAIT_1BIT    
-118  42              :LOAD       CONTBIT      08           
-119  43 NEXT_TX_BIT  
-120  43              :OUTPUT     TXREG        RS232        
-121  44              :CALL       WAIT_1BIT    
-122  45              :SR0        TXREG        
-123  46              :SUB        CONTBIT      01           
-124  47              :JUMP       NZ           NEXT_TX_BIT  
-125  48              :LOAD       TEMP         FF           
-126  49              :OUTPUT     TEMP         RS232        
-127  4A              :CALL       WAIT_1BIT    
-128  4B              :RETURN     
-129  4C              
-130  4C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-131  4C              ; Timing routines
-132  4C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-133  4C WAIT_1BIT    
-134  4C              :LOAD       CONT1        03           
-135  4D ESPERA2      
-136  4D              :LOAD       CONT2        22           
-137  4E ESPERA1      
-138  4E              :SUB        CONT2        01           
-139  4F              :JUMP       NZ           ESPERA1      
-140  50              :SUB        CONT1        01           
-141  51              :JUMP       NZ           ESPERA2      
-142  52              :RETURN     
-143  53              
-144  53 WAIT_05BIT   
-145  53              :LOAD       CONT1        03           
-146  54 ESPERA4      
-147  54              :LOAD       CONT2        10           
-148  55 ESPERA3      
-149  55              :SUB        CONT2        01           
-150  56              :JUMP       NZ           ESPERA3      
-151  57              :SUB        CONT1        01           
-152  58              :JUMP       NZ           ESPERA4      
-153  59              :RETURN     
-154  5A              
-155  5A              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-156  5A              ; Interrupt Service Routine
-157  5A              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-158  FF              :ADDRESS    FF           
-159  FF ISR          :DISABLE    INTERRUPT    
-160 100              :CALL       RECIBE       ; Get player's guess
-161 101              
-162 101              ; Echo received character
-163 101              :LOAD       TXREG        RXREG        
-164 102              :CALL       TRANSMITE    
-165 103              :LOAD       TXREG        20           ; Space
-166 104              :CALL       TRANSMITE    
-167 105              
-168 105              ; Check if guess is correct
-169 105              :LOAD       TEMP         RXREG        
-170 106              :SUB        TEMP         48           ; Convert from ASCII '0'
-171 107              
-172 107              :LOAD       S0           CURRENT      
-173 108              :SUB        S0           NEXT         
-174 109              :JUMP       Z            TIE          
-175 10A              
-176 10A              :JUMP       NC           HIGH_GUESS   
-177 10B              ; Low guess
-178 10B              :SUB        TEMP         02           ; Check if guess was '2' (lower)
-179 10C              :JUMP       NZ           WRONG        
-180 10D              :JUMP       WIN          
-181 10E              
-182 10E HIGH_GUESS   
-183 10E              ; High guess
-184 10E              :SUB        TEMP         01           ; Check if guess was '1' (higher)
-185 10F              :JUMP       NZ           WRONG        
-186 110              :JUMP       WIN          
-187 111              
-188 111 WRONG        :LOAD       TXREG        45           ; 'X'
-189 112              :CALL       TRANSMITE    
-190 113              :JUMP       SHOW_NEXT    
-191 114              
-192 114 WIN          :LOAD       TXREG        43           ; 'O'
-193 115              :CALL       TRANSMITE    
-194 116              :JUMP       SHOW_NEXT    
-195 117              
-196 117 TIE          :LOAD       TXREG        3D           ; '='
-197 118              :CALL       TRANSMITE    
-198 119              
-199 119 SHOW_NEXT    
-200 119              :LOAD       TXREG        20           ; Space
-201 11A              :CALL       TRANSMITE    
-202 11B              :LOAD       TXREG        28           ; '('
-203 11C              :CALL       TRANSMITE    
-204 11D              :LOAD       TXREG        NEXT         ; Show next number
-205 11E              :ADD        TXREG        30           ; Convert to ASCII
-206 11F              :CALL       TRANSMITE    
-207 120              :LOAD       TXREG        29           ; ')'
-208 121              :CALL       TRANSMITE    
-209 122              :LOAD       TXREG        0D           ; CR
-210 123              :CALL       TRANSMITE    
-211 124              :LOAD       TXREG        0A           ; LF
-212 125              :CALL       TRANSMITE    
-213 126              :LOAD       CURRENT      NEXT         ; Update current number
-214 127              :JUMP       NEW_ROUND    
+  7   0              :NAMEREG    S0           TARGET       ; Target number to guess
+  8   0              :NAMEREG    S1           GUESS        ; User's guess
+  9   0              :NAMEREG    S2           TEMP         ; Temporary storage
+ 10   0              :NAMEREG    S3           SEED         ; Random number seed
+ 11   0              :NAMEREG    S4           COUNTER      ; Counter for attempts
+ 12   0              
+ 13   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 14   0              ; Main Program
+ 15   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 16   0 START        
+ 17   0              ; Initialize random seed
+ 18   0              :LOAD       SEED         42           ; Initial seed
+ 19   1              
+ 20   1              ; Generate random number between 1-9
+ 21   1 GENERATE     
+ 22   1              :LOAD       TEMP         SEED         
+ 23   2              :AND        TEMP         0F           ; Get lower 4 bits
+ 24   3              :SR0        SEED         ; Shift right
+ 25   4              :JUMP       NZ           NO_FEEDBACK  
+ 26   5              :XOR        SEED         A3           ; XOR with feedback polynomial
+ 27   6 NO_FEEDBACK  
+ 28   6              :ADD        SEED         00           
+ 29   7              :JUMP       Z            GENERATE     ; Ensure not zero
+ 30   8              :LOAD       TEMP         SEED         ; Compare seed with 0A using subtraction
+ 31   9              :SUB        TEMP         0A           
+ 32   A              :JUMP       NC           GENERATE     ; If seed >= 0A, generate new number
+ 33   B              
+ 34   B              ; Store generated number as target
+ 35   B              :LOAD       TARGET       SEED         
+ 36   C              :LOAD       COUNTER      00           ; Reset attempt counter
+ 37   D              
+ 38   D              ; Welcome message
+ 39   D              :LOAD       S0           57           ; 'W'
+ 40   E              :OUTPUT     S0           RS232        
+ 41   F              :LOAD       S0           45           ; 'E'
+ 42  10              :OUTPUT     S0           RS232        
+ 43  11              :LOAD       S0           4C           ; 'L'
+ 44  12              :OUTPUT     S0           RS232        
+ 45  13              :LOAD       S0           43           ; 'C'
+ 46  14              :OUTPUT     S0           RS232        
+ 47  15              :LOAD       S0           4F           ; 'O'
+ 48  16              :OUTPUT     S0           RS232        
+ 49  17              :LOAD       S0           4D           ; 'M'
+ 50  18              :OUTPUT     S0           RS232        
+ 51  19              :LOAD       S0           45           ; 'E'
+ 52  1A              :OUTPUT     S0           RS232        
+ 53  1B              :LOAD       S0           21           ; '!'
+ 54  1C              :OUTPUT     S0           RS232        
+ 55  1D              :LOAD       S0           0D           ; CR
+ 56  1E              :OUTPUT     S0           RS232        
+ 57  1F              :LOAD       S0           0A           ; LF
+ 58  20              :OUTPUT     S0           RS232        
+ 59  21              
+ 60  21 GAME_LOOP    
+ 61  21              ; Check if max attempts reached
+ 62  21              :LOAD       TEMP         COUNTER      
+ 63  22              :SUB        TEMP         MAX_ATTEMPTS 
+ 64  23              :JUMP       Z            GAME_OVER    
+ 65  24              
+ 66  24              ; Get user input and convert from ASCII
+ 67  24              :INPUT      GUESS        RS232        ; Get character
+ 68  25              :SUB        GUESS        30           ; Convert from ASCII
+ 69  26              :ADD        COUNTER      01           ; Increment attempt counter
+ 70  27              
+ 71  27              ; Compare guess with target using subtraction
+ 72  27              :LOAD       TEMP         GUESS        
+ 73  28              :SUB        TEMP         TARGET       
+ 74  29              :JUMP       Z            CORRECT      ; If guess == target
+ 75  2A              :JUMP       C            TOO_LOW      ; If guess < target
+ 76  2B              :JUMP       TOO_HIGH     ; If guess > target
+ 77  2C              
+ 78  2C TOO_HIGH     
+ 79  2C              :LOAD       S0           48           ; 'H'
+ 80  2D              :OUTPUT     S0           RS232        
+ 81  2E              :JUMP       GAME_LOOP    
+ 82  2F              
+ 83  2F TOO_LOW      
+ 84  2F              :LOAD       S0           4C           ; 'L'
+ 85  30              :OUTPUT     S0           RS232        
+ 86  31              :JUMP       GAME_LOOP    
+ 87  32              
+ 88  32 CORRECT      
+ 89  32              :LOAD       S0           57           ; 'W'
+ 90  33              :OUTPUT     S0           RS232        
+ 91  34              :JUMP       PLAY_AGAIN   
+ 92  35              
+ 93  35 GAME_OVER    
+ 94  35              :LOAD       S0           58           ; 'X'
+ 95  36              :OUTPUT     S0           RS232        
+ 96  37              
+ 97  37 PLAY_AGAIN   
+ 98  37              ; Ask to play again
+ 99  37              :INPUT      S0           RS232        
+100  38              :LOAD       TEMP         S0           
+101  39              :SUB        TEMP         59           ; Compare with hex 59 ('Y')
+102  3A              :JUMP       Z            START        
+103  3B              :JUMP       END_PROGRAM  
+104  3C              
+105  3C END_PROGRAM  
+106  3C              :JUMP       END_PROGRAM  ; Infinite loop at end
+107  3D              
+108  3D              ; Subroutines for sending messages
+109  3D SEND_WELCOME 
+110  3D              :LOAD       S0           57           ; 'W'
+111  3E              :CALL       SEND_CHAR    
+112  3F              :LOAD       S0           45           ; 'E'
+113  40              :CALL       SEND_CHAR    
+114  41              :LOAD       S0           4C           ; 'L'
+115  42              :CALL       SEND_CHAR    
+116  43              :LOAD       S0           43           ; 'C'
+117  44              :CALL       SEND_CHAR    
+118  45              :LOAD       S0           4F           ; 'O'
+119  46              :CALL       SEND_CHAR    
+120  47              :LOAD       S0           4D           ; 'M'
+121  48              :CALL       SEND_CHAR    
+122  49              :LOAD       S0           45           ; 'E'
+123  4A              :CALL       SEND_CHAR    
+124  4B              :LOAD       S0           21           ; '!'
+125  4C              :CALL       SEND_CHAR    
+126  4D              :LOAD       S0           0D           ; CR
+127  4E              :CALL       SEND_CHAR    
+128  4F              :LOAD       S0           0A           ; LF
+129  50              :CALL       SEND_CHAR    
+130  51              :RETURN     
+131  52              
+132  52              ; Add other message subroutines here...
+133  52              
+134  52              ; Basic I/O subroutines
+135  52 SEND_CHAR    
+136  52              :OUTPUT     S0           RS232        
+137  53              :RETURN     
+138  54              
+139  54 GET_INPUT    
+140  54              :INPUT      S0           RS232        
+141  55              :RETURN     
