@@ -37,9 +37,15 @@ start:      LOAD counter, 00        ; Initialize counter
             CALL transmite
             LOAD txreg, 10          ; LF
             CALL transmite
+            
+            ENABLE INTERRUPT        ; Enable interrupts and wait
+wait_input: JUMP wait_input        ; Loop until interrupt
 
-game_loop:  CALL recibe            ; Get player's guess
-            SUB rxreg, 48          ; Convert ASCII to number (ASCII '0' = 48)
+            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+            ; Game processing routine
+            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+process_input:
+            SUB rxreg, 48          ; Convert ASCII to number
             
             ; Compare with secret
             LOAD s0, rxreg
@@ -53,7 +59,7 @@ too_high:   LOAD txreg, 72         ; 'H'
             CALL transmite
             LOAD txreg, 10          ; LF
             CALL transmite
-            JUMP game_loop
+            RETURNI ENABLE
             
 too_low:    LOAD txreg, 76         ; 'L'
             CALL transmite
@@ -61,7 +67,7 @@ too_low:    LOAD txreg, 76         ; 'L'
             CALL transmite
             LOAD txreg, 10          ; LF
             CALL transmite
-            JUMP game_loop
+            RETURNI ENABLE
             
 correct:    LOAD txreg, 42         ; '*' (ASCII 42)
             CALL transmite
@@ -147,6 +153,4 @@ espera3:    SUB cont2, 01
             ADDRESS FF
 interrup:   DISABLE INTERRUPT
             CALL recibe
-            LOAD txreg, rxreg
-            CALL transmite
-            RETURNI ENABLE
+            JUMP process_input
