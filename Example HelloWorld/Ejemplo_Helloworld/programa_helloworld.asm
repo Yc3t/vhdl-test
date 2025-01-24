@@ -1,6 +1,6 @@
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;                 
-            ; Simple Echo Program
+            ; Number Guessing Game
             ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             
@@ -14,6 +14,8 @@
             NAMEREG s3, contbit     ; Bit counter
             NAMEREG s4, cont1       ; Delay counter 1
             NAMEREG s5, cont2       ; Delay counter 2
+            NAMEREG s6, secret      ; Secret number to guess
+            NAMEREG s7, counter     ; Simple counter for pseudo-random number
             
             ADDRESS 00              ; Program starts at address 00
 
@@ -21,10 +23,60 @@
             ; Program start
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             DISABLE INTERRUPT
-start:      CALL recibe            ; Wait for character
-            LOAD txreg, rxreg      ; Copy received character to transmit
-            CALL transmite         ; Echo it back
-            JUMP start             ; Loop forever
+            
+            ; Initialize game
+start:      LOAD counter, 00        ; Initialize counter
+            LOAD secret, 05         ; Initial secret number
+
+            ; Send welcome message
+            LOAD txreg, 35          ; '5' (ASCII 53)
+            CALL transmite
+            LOAD txreg, 32          ; '2' (ASCII 50)
+            CALL transmite
+            LOAD txreg, 13          ; CR
+            CALL transmite
+            LOAD txreg, 10          ; LF
+            CALL transmite
+
+game_loop:  CALL recibe            ; Get player's guess
+            SUB rxreg, 48          ; Convert ASCII to number (ASCII '0' = 48)
+            
+            ; Compare with secret
+            LOAD s0, rxreg
+            COMPARE: SUB s0, secret
+            JUMP Z, correct
+            JUMP C, too_low
+            
+too_high:   LOAD txreg, 72         ; 'H'
+            CALL transmite
+            LOAD txreg, 13          ; CR
+            CALL transmite
+            LOAD txreg, 10          ; LF
+            CALL transmite
+            JUMP game_loop
+            
+too_low:    LOAD txreg, 76         ; 'L'
+            CALL transmite
+            LOAD txreg, 13          ; CR
+            CALL transmite
+            LOAD txreg, 10          ; LF
+            CALL transmite
+            JUMP game_loop
+            
+correct:    LOAD txreg, 42         ; '*' (ASCII 42)
+            CALL transmite
+            LOAD txreg, 13          ; CR
+            CALL transmite
+            LOAD txreg, 10          ; LF
+            CALL transmite
+            
+            ; Generate new secret number for next game
+            ADD counter, 01
+            AND counter, 07         ; Keep in range 0-7
+            LOAD secret, counter
+            ADD secret, 01         ; Make sure it's not 0
+            
+            JUMP start             ; Start new game
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character reception routine
