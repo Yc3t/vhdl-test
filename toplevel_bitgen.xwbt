@@ -1,0 +1,8 @@
+INTSTYLE=ise
+INFILE=C:\Xilinx\Practicas_4AHC\Practica2_Picoblaze\P2b_Picoblaze_Helloworld_RAM_INT\P2b_Proyecto_Helloworld_RAM_INT\toplevel.ncd
+OUTFILE=C:\Xilinx\Practicas_4AHC\Practica2_Picoblaze\P2b_Picoblaze_Helloworld_RAM_INT\P2b_Proyecto_Helloworld_RAM_INT\toplevel.bit
+FAMILY=Spartan3E
+PART=xc3s500e-4fg320
+WORKINGDIR=C:\Xilinx\Practicas_4AHC\Practica2_Picoblaze\P2b_Picoblaze_Helloworld_RAM_INT\P2b_Proyecto_Helloworld_RAM_INT
+LICENSE=ISE
+USER_INFO=210682935_1777487889_210717946_048
