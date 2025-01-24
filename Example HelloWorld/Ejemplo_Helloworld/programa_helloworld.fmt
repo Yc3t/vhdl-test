@@ -1,7 +1,7 @@
   1   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   2   0              ; Program: Hamming Code Test with UART           
   3   0              ; Tests the Hamming encoder/decoder functionality
-  4   0              ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
+  4   0              ; 9600bps, 8 data bits, no parity, 1 stop bit, no flow control
   5   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   6   0              
   7   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -16,83 +16,108 @@
  16   0              :NAMEREG    S4           CONT1        ; Delay counter 1
  17   0              :NAMEREG    S5           CONT2        ; Delay counter 2
  18   0              :NAMEREG    S6           DATA_REG     ; Data for Hamming encoding
- 19   0              
- 20   0              :ADDRESS    00           ; Program starts at address 00
- 21   0              
- 22   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 23   0              ; Program start
- 24   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 25   0 START        :CALL       RECIBE       ; Wait for start character
- 26   1              
- 27   1              ; Test Hamming encoding
- 28   1              :LOAD       DATA_REG     05           ; Load test data (0101)
- 29   2              :LOAD       S0           80           ; Set encode bit
- 30   3              :OR         DATA_REG     S0           ; Combine encode bit with data
- 31   4              :OUTPUT     DATA_REG     HAMMING_PORT ; Send to Hamming encoder
- 32   5              :INPUT      TXREG        HAMMING_PORT ; Read encoded result
- 33   6              :CALL       TRANSMITE    ; Transmit encoded data
- 34   7              
- 35   7              :JUMP       START        ; Loop forever
- 36   8              
- 37   8              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 38   8              ; Character reception routine
- 39   8              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 40   8 RECIBE       ; Wait for start bit
- 41   8              :INPUT      RXREG        RS232        
- 42   9              :AND        RXREG        80           
- 43   A              :JUMP       NZ           RECIBE       
- 44   B              :CALL       WAIT_05BIT   
- 45   C              ; Store 8 data bits
- 46   C              :LOAD       CONTBIT      09           
- 47   D NEXT_RX_BIT  
- 48   D              :CALL       WAIT_1BIT    
- 49   E              :SR0        RXREG        
- 50   F              :INPUT      S0           RS232        
- 51  10              :AND        S0           80           
- 52  11              :OR         RXREG        S0           
- 53  12              :SUB        CONTBIT      01           
- 54  13              :JUMP       NZ           NEXT_RX_BIT  
- 55  14              :RETURN     
- 56  15              
- 57  15              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 58  15              ; Character transmission routine
- 59  15              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 60  15 TRANSMITE    ; Send start bit
- 61  15              :LOAD       S0           00           
- 62  16              :OUTPUT     S0           RS232        
- 63  17              :CALL       WAIT_1BIT    
- 64  18              ; Send 8 data bits
- 65  18              :LOAD       CONTBIT      08           
- 66  19 NEXT_TX_BIT  
- 67  19              :OUTPUT     TXREG        RS232        
- 68  1A              :CALL       WAIT_1BIT    
- 69  1B              :SR0        TXREG        
- 70  1C              :SUB        CONTBIT      01           
- 71  1D              :JUMP       NZ           NEXT_TX_BIT  
- 72  1E              ; Send stop bit
- 73  1E              :LOAD       S0           FF           
- 74  1F              :OUTPUT     S0           RS232        
- 75  20              :CALL       WAIT_1BIT    
- 76  21              :RETURN     
- 77  22              
- 78  22              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 79  22              ; 1-bit wait routine (115200 bps)
- 80  22              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 81  22 WAIT_1BIT    :LOAD       CONT1        03           
- 82  23 ESPERA2      :LOAD       CONT2        22           
- 83  24 ESPERA1      :SUB        CONT2        01           
- 84  25              :JUMP       NZ           ESPERA1      
- 85  26              :SUB        CONT1        01           
- 86  27              :JUMP       NZ           ESPERA2      
- 87  28              :RETURN     
- 88  29              
- 89  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 90  29              ; 0.5-bit wait routine (115200 bps)
- 91  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 92  29 WAIT_05BIT   :LOAD       CONT1        03           
- 93  2A ESPERA4      :LOAD       CONT2        10           
- 94  2B ESPERA3      :SUB        CONT2        01           
- 95  2C              :JUMP       NZ           ESPERA3      
- 96  2D              :SUB        CONT1        01           
- 97  2E              :JUMP       NZ           ESPERA4      
- 98  2F              :RETURN     
+ 19   0              :NAMEREG    S7           TEST_DATA    ; Test pattern counter
+ 20   0              
+ 21   0              :ADDRESS    00           ; Program starts at address 00
+ 22   0              
+ 23   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 24   0              ; Program start
+ 25   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 26   0 START        :LOAD       TEST_DATA    00           ; Initialize test pattern
+ 27   1              
+ 28   1 TEST_LOOP    ; Send test pattern marker
+ 29   1              :LOAD       TXREG        54           ; Send 'T' character (ASCII 54h = 'T')
+ 30   2              :CALL       TRANSMITE    
+ 31   3              :LOAD       TXREG        3A           ; Send ':' character (ASCII 3Ah = ':')
+ 32   4              :CALL       TRANSMITE    
+ 33   5              
+ 34   5              ; Test Hamming encoding
+ 35   5              :LOAD       DATA_REG     TEST_DATA    ; Load test pattern
+ 36   6              :LOAD       S0           80           ; Set encode bit
+ 37   7              :OR         DATA_REG     S0           ; Combine encode bit with data
+ 38   8              :OUTPUT     DATA_REG     HAMMING_PORT ; Send to Hamming encoder
+ 39   9              :INPUT      TXREG        HAMMING_PORT ; Read encoded result
+ 40   A              :CALL       TRANSMITE    ; Transmit encoded data
+ 41   B              
+ 42   B              ; Send newline
+ 43   B              :LOAD       TXREG        0D           ; Carriage return
+ 44   C              :CALL       TRANSMITE    
+ 45   D              :LOAD       TXREG        0A           ; Line feed
+ 46   E              :CALL       TRANSMITE    
+ 47   F              
+ 48   F              ; Increment test pattern
+ 49   F              :ADD        TEST_DATA    01           
+ 50  10              :AND        TEST_DATA    0F           ; Keep in 4-bit range
+ 51  11              
+ 52  11              ; Delay between tests
+ 53  11              :LOAD       CONT1        FF           
+ 54  12 DELAY1       :LOAD       CONT2        FF           
+ 55  13 DELAY2       :SUB        CONT2        01           
+ 56  14              :JUMP       NZ           DELAY2       
+ 57  15              :SUB        CONT1        01           
+ 58  16              :JUMP       NZ           DELAY1       
+ 59  17              
+ 60  17              :JUMP       TEST_LOOP    ; Continue with next pattern
+ 61  18              
+ 62  18              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 63  18              ; Character reception routine
+ 64  18              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 65  18 RECIBE       ; Wait for start bit
+ 66  18              :INPUT      RXREG        RS232        
+ 67  19              :AND        RXREG        80           
+ 68  1A              :JUMP       NZ           RECIBE       
+ 69  1B              :CALL       WAIT_05BIT   
+ 70  1C              ; Store 8 data bits
+ 71  1C              :LOAD       CONTBIT      09           
+ 72  1D NEXT_RX_BIT  
+ 73  1D              :CALL       WAIT_1BIT    
+ 74  1E              :SR0        RXREG        
+ 75  1F              :INPUT      S0           RS232        
+ 76  20              :AND        S0           80           
+ 77  21              :OR         RXREG        S0           
+ 78  22              :SUB        CONTBIT      01           
+ 79  23              :JUMP       NZ           NEXT_RX_BIT  
+ 80  24              :RETURN     
+ 81  25              
+ 82  25              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 83  25              ; Character transmission routine
+ 84  25              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 85  25 TRANSMITE    ; Send start bit
+ 86  25              :LOAD       S0           00           
+ 87  26              :OUTPUT     S0           RS232        
+ 88  27              :CALL       WAIT_1BIT    
+ 89  28              ; Send 8 data bits
+ 90  28              :LOAD       CONTBIT      08           
+ 91  29 NEXT_TX_BIT  
+ 92  29              :OUTPUT     TXREG        RS232        
+ 93  2A              :CALL       WAIT_1BIT    
+ 94  2B              :SR0        TXREG        
+ 95  2C              :SUB        CONTBIT      01           
+ 96  2D              :JUMP       NZ           NEXT_TX_BIT  
+ 97  2E              ; Send stop bit
+ 98  2E              :LOAD       S0           FF           
+ 99  2F              :OUTPUT     S0           RS232        
+100  30              :CALL       WAIT_1BIT    
+101  31              :RETURN     
+102  32              
+103  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+104  32              ; 1-bit wait routine (9600 bps)
+105  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+106  32 WAIT_1BIT    :LOAD       CONT1        0A           ; Adjusted for 9600 baud
+107  33 ESPERA2      :LOAD       CONT2        80           
+108  34 ESPERA1      :SUB        CONT2        01           
+109  35              :JUMP       NZ           ESPERA1      
+110  36              :SUB        CONT1        01           
+111  37              :JUMP       NZ           ESPERA2      
+112  38              :RETURN     
+113  39              
+114  39              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+115  39              ; 0.5-bit wait routine (9600 bps)
+116  39              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+117  39 WAIT_05BIT   :LOAD       CONT1        05           ; Adjusted for 9600 baud
+118  3A ESPERA4      :LOAD       CONT2        80           
+119  3B ESPERA3      :SUB        CONT2        01           
+120  3C              :JUMP       NZ           ESPERA3      
+121  3D              :SUB        CONT1        01           
+122  3E              :JUMP       NZ           ESPERA4      
+123  3F              :RETURN     
