@@ -1,6 +1,7 @@
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;                 
-            ; Number Guessing Game
+            ; Simon Says Game
+            ; Shows a sequence that player must repeat
             ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             
@@ -9,13 +10,14 @@
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                  
             CONSTANT rs232, FF       ; UART port
             
+            NAMEREG s0, temp        ; Temporary register
             NAMEREG s1, txreg       ; Transmission buffer
             NAMEREG s2, rxreg       ; Reception buffer
             NAMEREG s3, contbit     ; Bit counter
             NAMEREG s4, cont1       ; Delay counter 1
             NAMEREG s5, cont2       ; Delay counter 2
-            NAMEREG s6, secret      ; Secret number to guess
-            NAMEREG s7, temp        ; Temporary storage
+            NAMEREG s6, sequence    ; Current position in sequence
+            NAMEREG s7, pattern     ; Pattern to show/level
             
             ADDRESS 00              ; Program starts at address 00
 
@@ -23,27 +25,44 @@
             ; Program start
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             DISABLE INTERRUPT
-            LOAD secret, 05         ; Initial secret number
+            
+start:      LOAD pattern, 41       ; Start with 'A'
+            LOAD sequence, 01       ; Start with sequence length 1
 
-            ; Send welcome message
-            LOAD txreg, 35          ; '5'
+show_seq:   LOAD temp, sequence    ; Initialize sequence counter
+            
+next_char:  LOAD txreg, pattern    ; Show current pattern
             CALL transmite
-            LOAD txreg, 32          ; '2'
+            LOAD txreg, 20         ; Space
             CALL transmite
-            LOAD txreg, 0D          ; CR
+            
+            ; Delay between characters
+            LOAD cont1, FF
+wait1:      LOAD cont2, FF
+wait2:      SUB cont2, 01
+            JUMP NZ, wait2
+            SUB cont1, 01
+            JUMP NZ, wait1
+            
+            SUB temp, 01
+            JUMP NZ, next_char
+            
+            ; End sequence with newline
+            LOAD txreg, 0D         ; CR
             CALL transmite
-            LOAD txreg, 0A          ; LF
+            LOAD txreg, 0A         ; LF
             CALL transmite
+            
+            LOAD temp, sequence    ; Reset for input phase
+            ENABLE INTERRUPT       ; Wait for player input
 
-            ENABLE INTERRUPT        ; Enable interrupts for game input
-
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            ; Main program loop
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-main_loop:  LOAD temp, 09          ; Delay loop
-delay:      SUB temp, 01
-            JUMP NZ, delay
-            JUMP main_loop         ; Loop forever
+main_loop:  LOAD cont1, FF        ; Main program delay loop
+loop1:      LOAD cont2, FF
+loop2:      SUB cont2, 01
+            JUMP NZ, loop2
+            SUB cont1, 01
+            JUMP NZ, loop1
+            JUMP main_loop
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character reception routine
@@ -56,9 +75,9 @@ recibe:     INPUT rxreg, rs232
 next_rx_bit:
             CALL wait_1bit
             SR0 rxreg
-            INPUT s0, rs232
-            AND s0, 80
-            OR rxreg, s0
+            INPUT temp, rs232
+            AND temp, 80
+            OR rxreg, temp
             SUB contbit, 01
             JUMP NZ, next_rx_bit
             RETURN
@@ -66,8 +85,8 @@ next_rx_bit:
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character transmission routine
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-transmite:  LOAD s0, 00
-            OUTPUT s0, rs232
+transmite:  LOAD temp, 00
+            OUTPUT temp, rs232
             CALL wait_1bit
             LOAD contbit, 08
 next_tx_bit:
@@ -76,8 +95,8 @@ next_tx_bit:
             SR0 txreg
             SUB contbit, 01
             JUMP NZ, next_tx_bit
-            LOAD s0, FF
-            OUTPUT s0, rs232
+            LOAD temp, FF
+            OUTPUT temp, rs232
             CALL wait_1bit
             RETURN
 
@@ -111,32 +130,35 @@ isr:        DISABLE INTERRUPT
             LOAD txreg, rxreg
             CALL transmite
             
-            ; Process game logic
-            LOAD temp, rxreg       ; Save input
-            SUB temp, 48          ; Convert from ASCII
+            ; Check if input matches pattern
+            LOAD temp, rxreg
+            SUB temp, pattern
+            JUMP NZ, game_over
             
-            ; Compare with secret
-            LOAD s0, temp         ; Load guess
-            SUB s0, secret        ; Compare with secret
-            JUMP Z, win           ; If zero, correct guess
-            JUMP C, low           ; If carry, too low
+            SUB sequence, 01       ; One character matched
+            JUMP Z, level_complete ; If sequence complete
+            RETURNI ENABLE         ; Otherwise continue sequence
             
-high:       LOAD txreg, 72        ; 'H'
+game_over:  LOAD txreg, 58        ; ':('
             CALL transmite
-            JUMP end_isr
+            LOAD txreg, 40
+            CALL transmite
+            LOAD txreg, 0D
+            CALL transmite
+            LOAD txreg, 0A
+            CALL transmite
+            JUMP start            ; Restart game
             
-low:        LOAD txreg, 76        ; 'L'
+level_complete:
+            LOAD txreg, 3A        ; ':)'
             CALL transmite
-            JUMP end_isr
+            LOAD txreg, 29
+            CALL transmite
+            LOAD txreg, 0D
+            CALL transmite
+            LOAD txreg, 0A
+            CALL transmite
             
-win:        LOAD txreg, 42        ; '*'
-            CALL transmite
-            ADD secret, 01        ; New secret number
-            AND secret, 07
-            ADD secret, 01
-            
-end_isr:    LOAD txreg, 0D        ; CR
-            CALL transmite
-            LOAD txreg, 0A        ; LF
-            CALL transmite
-            RETURNI ENABLE
+            ADD sequence, 01      ; Increase sequence length
+            ADD pattern, 01       ; Change pattern
+            JUMP show_seq        ; Show new sequence
