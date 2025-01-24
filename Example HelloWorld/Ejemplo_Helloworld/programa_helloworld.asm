@@ -1,40 +1,30 @@
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            ; Program: Hamming Code Test with UART           
-            ; Tests the Hamming encoder/decoder functionality
+            ;                 
+            ; Simple Echo Program
             ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Constants and variables declaration
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            CONSTANT rs232, FF           ; UART port
-            CONSTANT hamming_port, FE    ; Hamming module port
+            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                  
+            CONSTANT rs232, FF       ; UART port
             
-            NAMEREG s1, txreg           ; Transmission buffer
-            NAMEREG s2, rxreg           ; Reception buffer
-            NAMEREG s3, contbit         ; Bit counter
-            NAMEREG s4, cont1           ; Delay counter 1
-            NAMEREG s5, cont2           ; Delay counter 2
-            NAMEREG s6, data_reg        ; Data for Hamming encoding
+            NAMEREG s1, txreg       ; Transmission buffer
+            NAMEREG s2, rxreg       ; Reception buffer
+            NAMEREG s3, contbit     ; Bit counter
+            NAMEREG s4, cont1       ; Delay counter 1
+            NAMEREG s5, cont2       ; Delay counter 2
             
-            ADDRESS 00                  ; Program starts at address 00
+            ADDRESS 00              ; Program starts at address 00
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Program start
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            DISABLE INTERRUPT           ; Disable interrupts at start
-start:      CALL recibe                ; Wait for character input
-            
-            ; Test Hamming encoding
-            LOAD data_reg, rxreg        ; Use received character as test data
-            AND data_reg, 0F           ; Mask to 4 bits
-            LOAD s0, 80                ; Set encode bit
-            OR data_reg, s0            ; Combine encode bit with data
-            OUTPUT data_reg, hamming_port ; Send to Hamming encoder
-            INPUT txreg, hamming_port  ; Read encoded result
-            CALL transmite             ; Transmit encoded data
-            
-            JUMP start                 ; Wait for next character
+            DISABLE INTERRUPT
+start:      CALL recibe            ; Wait for character
+            LOAD txreg, rxreg      ; Copy received character to transmit
+            CALL transmite         ; Echo it back
+            JUMP start             ; Loop forever
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character reception routine
