@@ -113,10 +113,13 @@ espera3:    SUB cont2, 01
             ADDRESS FF
 interrup:   DISABLE INTERRUPT
             CALL recibe
-            SUB rxreg, 48          ; Convert ASCII to number
+            LOAD txreg, rxreg      ; Echo the received character first
+            CALL transmite
+            
+            LOAD s0, rxreg         ; Save original input
+            SUB s0, 48             ; Convert ASCII to number
             
             ; Compare with secret
-            LOAD s0, rxreg
             SUB s0, secret
             JUMP Z, win
             JUMP C, low

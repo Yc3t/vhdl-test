@@ -113,30 +113,33 @@
 113  FF              :ADDRESS    FF           
 114  FF INTERRUP     :DISABLE    INTERRUPT    
 115 100              :CALL       RECIBE       
-116 101              :SUB        RXREG        48           ; Convert ASCII to number
-117 102              
-118 102              ; Compare with secret
-119 102              :LOAD       S0           RXREG        
-120 103              :SUB        S0           SECRET       
-121 104              :JUMP       Z            WIN          
-122 105              :JUMP       C            LOW          
-123 106              
-124 106 HIGH         :LOAD       TXREG        72           ; 'H'
-125 107              :CALL       TRANSMITE    
-126 108              :JUMP       END_ISR      
-127 109              
-128 109 LOW          :LOAD       TXREG        76           ; 'L'
-129 10A              :CALL       TRANSMITE    
-130 10B              :JUMP       END_ISR      
-131 10C              
-132 10C WIN          :LOAD       TXREG        42           ; '*'
-133 10D              :CALL       TRANSMITE    
-134 10E              :ADD        SECRET       01           ; Change secret number
-135 10F              :AND        SECRET       07           
-136 110              :ADD        SECRET       01           
-137 111              
-138 111 END_ISR      :LOAD       TXREG        0D           ; CR
-139 112              :CALL       TRANSMITE    
-140 113              :LOAD       TXREG        0A           ; LF
-141 114              :CALL       TRANSMITE    
-142 115              :RETURNI    ENABLE       
+116 101              :LOAD       TXREG        RXREG        ; Echo the received character first
+117 102              :CALL       TRANSMITE    
+118 103              
+119 103              :LOAD       S0           RXREG        ; Save original input
+120 104              :SUB        S0           48           ; Convert ASCII to number
+121 105              
+122 105              ; Compare with secret
+123 105              :SUB        S0           SECRET       
+124 106              :JUMP       Z            WIN          
+125 107              :JUMP       C            LOW          
+126 108              
+127 108 HIGH         :LOAD       TXREG        72           ; 'H'
+128 109              :CALL       TRANSMITE    
+129 10A              :JUMP       END_ISR      
+130 10B              
+131 10B LOW          :LOAD       TXREG        76           ; 'L'
+132 10C              :CALL       TRANSMITE    
+133 10D              :JUMP       END_ISR      
+134 10E              
+135 10E WIN          :LOAD       TXREG        42           ; '*'
+136 10F              :CALL       TRANSMITE    
+137 110              :ADD        SECRET       01           ; Change secret number
+138 111              :AND        SECRET       07           
+139 112              :ADD        SECRET       01           
+140 113              
+141 113 END_ISR      :LOAD       TXREG        0D           ; CR
+142 114              :CALL       TRANSMITE    
+143 115              :LOAD       TXREG        0A           ; LF
+144 116              :CALL       TRANSMITE    
+145 117              :RETURNI    ENABLE       
