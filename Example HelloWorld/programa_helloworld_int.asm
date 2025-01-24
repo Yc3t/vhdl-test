@@ -28,6 +28,18 @@ DISABLE INTERRUPT
 start:  LOAD current, 01   ; Initial number
 
 new_round:
+        ; Send "Current: "
+        LOAD txreg, 43     ; 'C'
+        CALL transmite
+        LOAD txreg, 75     ; 'u'
+        CALL transmite
+        LOAD txreg, 72     ; 'r'
+        CALL transmite
+        LOAD txreg, 3A     ; ':'
+        CALL transmite
+        LOAD txreg, 20     ; Space
+        CALL transmite
+
         ; Send current number
         LOAD txreg, current
         ADD txreg, 30      ; Convert to ASCII
@@ -43,6 +55,26 @@ new_round:
         AND temp, 07       ; Keep it within 0-7
         ADD temp, 01       ; Make it 1-8
         LOAD next, temp
+
+        ; Send prompt
+        LOAD txreg, 31     ; '1'
+        CALL transmite
+        LOAD txreg, 3D     ; '='
+        CALL transmite
+        LOAD txreg, 48     ; 'H'
+        CALL transmite
+        LOAD txreg, 20     ; Space
+        CALL transmite
+        LOAD txreg, 32     ; '2'
+        CALL transmite
+        LOAD txreg, 3D     ; '='
+        CALL transmite
+        LOAD txreg, 4C     ; 'L'
+        CALL transmite
+        LOAD txreg, 3A     ; ':'
+        CALL transmite
+        LOAD txreg, 20     ; Space
+        CALL transmite
 
         ENABLE INTERRUPT   ; Wait for player input
 
@@ -130,6 +162,8 @@ isr:    DISABLE INTERRUPT
         ; Echo received character
         LOAD txreg, rxreg
         CALL transmite
+        LOAD txreg, 20    ; Space
+        CALL transmite
 
         ; Check if guess is correct
         LOAD temp, rxreg
@@ -153,17 +187,25 @@ high_guess:
 
 wrong:  LOAD txreg, 45   ; 'X'
         CALL transmite
-        JUMP end_isr
+        JUMP show_next
 
 win:    LOAD txreg, 43   ; 'O'
         CALL transmite
-        JUMP end_isr
+        JUMP show_next
 
 tie:    LOAD txreg, 3D   ; '='
         CALL transmite
-        JUMP end_isr
 
-end_isr:
+show_next:
+        LOAD txreg, 20    ; Space
+        CALL transmite
+        LOAD txreg, 28    ; '('
+        CALL transmite
+        LOAD txreg, next  ; Show next number
+        ADD txreg, 30     ; Convert to ASCII
+        CALL transmite
+        LOAD txreg, 29    ; ')'
+        CALL transmite
         LOAD txreg, 0D    ; CR
         CALL transmite
         LOAD txreg, 0A    ; LF
