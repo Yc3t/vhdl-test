@@ -1,141 +1,104 @@
-  1   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  2   0              ; Constants and Variables
-  3   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  4   0              :CONSTANT   RS232        FF           ; Serial port
-  5   0              :CONSTANT   MAX_ATTEMPTS 0A           ; Maximum attempts allowed
-  6   0              
-  7   0              :NAMEREG    S0           TARGET       ; Target number to guess
-  8   0              :NAMEREG    S1           GUESS        ; User's guess
-  9   0              :NAMEREG    S2           TEMP         ; Temporary storage
- 10   0              :NAMEREG    S3           SEED         ; Random number seed
- 11   0              :NAMEREG    S4           COUNTER      ; Counter for attempts
- 12   0              
- 13   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 14   0              ; Main Program
- 15   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 16   0 START        
- 17   0              ; Initialize random seed
- 18   0              :LOAD       SEED         42           ; Initial seed
- 19   1              
- 20   1              ; Generate random number between 1-9
- 21   1 GENERATE     
- 22   1              :LOAD       TEMP         SEED         
- 23   2              :AND        TEMP         0F           ; Get lower 4 bits
- 24   3              :SR0        SEED         ; Shift right
- 25   4              :JUMP       NZ           NO_FEEDBACK  
- 26   5              :XOR        SEED         A3           ; XOR with feedback polynomial
- 27   6 NO_FEEDBACK  
- 28   6              :ADD        SEED         00           
- 29   7              :JUMP       Z            GENERATE     ; Ensure not zero
- 30   8              :LOAD       TEMP         SEED         ; Compare seed with 0A using subtraction
- 31   9              :SUB        TEMP         0A           
- 32   A              :JUMP       NC           GENERATE     ; If seed >= 0A, generate new number
- 33   B              
- 34   B              ; Store generated number as target
- 35   B              :LOAD       TARGET       SEED         
- 36   C              :LOAD       COUNTER      00           ; Reset attempt counter
- 37   D              
- 38   D              ; Welcome message
- 39   D              :LOAD       S0           57           ; 'W'
- 40   E              :OUTPUT     S0           RS232        
- 41   F              :LOAD       S0           45           ; 'E'
- 42  10              :OUTPUT     S0           RS232        
- 43  11              :LOAD       S0           4C           ; 'L'
- 44  12              :OUTPUT     S0           RS232        
- 45  13              :LOAD       S0           43           ; 'C'
- 46  14              :OUTPUT     S0           RS232        
- 47  15              :LOAD       S0           4F           ; 'O'
- 48  16              :OUTPUT     S0           RS232        
- 49  17              :LOAD       S0           4D           ; 'M'
- 50  18              :OUTPUT     S0           RS232        
- 51  19              :LOAD       S0           45           ; 'E'
- 52  1A              :OUTPUT     S0           RS232        
- 53  1B              :LOAD       S0           21           ; '!'
- 54  1C              :OUTPUT     S0           RS232        
- 55  1D              :LOAD       S0           0D           ; CR
- 56  1E              :OUTPUT     S0           RS232        
- 57  1F              :LOAD       S0           0A           ; LF
- 58  20              :OUTPUT     S0           RS232        
- 59  21              
- 60  21 GAME_LOOP    
- 61  21              ; Check if max attempts reached
- 62  21              :LOAD       TEMP         COUNTER      
- 63  22              :SUB        TEMP         MAX_ATTEMPTS 
- 64  23              :JUMP       Z            GAME_OVER    
- 65  24              
- 66  24              ; Get user input and convert from ASCII
- 67  24              :INPUT      GUESS        RS232        ; Get character
- 68  25              :SUB        GUESS        30           ; Convert from ASCII
- 69  26              :ADD        COUNTER      01           ; Increment attempt counter
- 70  27              
- 71  27              ; Compare guess with target using subtraction
- 72  27              :LOAD       TEMP         GUESS        
- 73  28              :SUB        TEMP         TARGET       
- 74  29              :JUMP       Z            CORRECT      ; If guess == target
- 75  2A              :JUMP       C            TOO_LOW      ; If guess < target
- 76  2B              :JUMP       TOO_HIGH     ; If guess > target
- 77  2C              
- 78  2C TOO_HIGH     
- 79  2C              :LOAD       S0           48           ; 'H'
- 80  2D              :OUTPUT     S0           RS232        
- 81  2E              :JUMP       GAME_LOOP    
- 82  2F              
- 83  2F TOO_LOW      
- 84  2F              :LOAD       S0           4C           ; 'L'
- 85  30              :OUTPUT     S0           RS232        
- 86  31              :JUMP       GAME_LOOP    
- 87  32              
- 88  32 CORRECT      
- 89  32              :LOAD       S0           57           ; 'W'
- 90  33              :OUTPUT     S0           RS232        
- 91  34              :JUMP       PLAY_AGAIN   
- 92  35              
- 93  35 GAME_OVER    
- 94  35              :LOAD       S0           58           ; 'X'
- 95  36              :OUTPUT     S0           RS232        
- 96  37              
- 97  37 PLAY_AGAIN   
- 98  37              ; Ask to play again
- 99  37              :INPUT      S0           RS232        
-100  38              :LOAD       TEMP         S0           
-101  39              :SUB        TEMP         59           ; Compare with hex 59 ('Y')
-102  3A              :JUMP       Z            START        
-103  3B              :JUMP       END_PROGRAM  
-104  3C              
-105  3C END_PROGRAM  
-106  3C              :JUMP       END_PROGRAM  ; Infinite loop at end
-107  3D              
-108  3D              ; Subroutines for sending messages
-109  3D SEND_WELCOME 
-110  3D              :LOAD       S0           57           ; 'W'
-111  3E              :CALL       SEND_CHAR    
-112  3F              :LOAD       S0           45           ; 'E'
-113  40              :CALL       SEND_CHAR    
-114  41              :LOAD       S0           4C           ; 'L'
-115  42              :CALL       SEND_CHAR    
-116  43              :LOAD       S0           43           ; 'C'
-117  44              :CALL       SEND_CHAR    
-118  45              :LOAD       S0           4F           ; 'O'
-119  46              :CALL       SEND_CHAR    
-120  47              :LOAD       S0           4D           ; 'M'
-121  48              :CALL       SEND_CHAR    
-122  49              :LOAD       S0           45           ; 'E'
-123  4A              :CALL       SEND_CHAR    
-124  4B              :LOAD       S0           21           ; '!'
-125  4C              :CALL       SEND_CHAR    
-126  4D              :LOAD       S0           0D           ; CR
-127  4E              :CALL       SEND_CHAR    
-128  4F              :LOAD       S0           0A           ; LF
-129  50              :CALL       SEND_CHAR    
-130  51              :RETURN     
-131  52              
-132  52              ; Add other message subroutines here...
-133  52              
-134  52              ; Basic I/O subroutines
-135  52 SEND_CHAR    
-136  52              :OUTPUT     S0           RS232        
-137  53              :RETURN     
-138  54              
-139  54 GET_INPUT    
-140  54              :INPUT      S0           RS232        
-141  55              :RETURN     
+  1   0              ; Register definitions
+  2   0              :NAMEREG    S0           DISPLAY      ; Display output register
+  3   0              :NAMEREG    S1           POSITION     ; Current position
+  4   0              :NAMEREG    S2           INPUT        ; Input buffer
+  5   0              :NAMEREG    S3           TEMP         ; Temporary storage
+  6   0              :NAMEREG    S4           SCORE        ; Score counter
+  7   0              :NAMEREG    S5           TEMP2        ; Second temporary storage
+  8   0              
+  9   0              ; Constants
+ 10   0              :CONSTANT   RS232        FF           ; Serial port
+ 11   0              :CONSTANT   LEFT_KEY     41           ; 'A' key
+ 12   0              :CONSTANT   RIGHT_KEY    44           ; 'D' key
+ 13   0              :CONSTANT   QUIT_KEY     51           ; 'Q' key
+ 14   0              
+ 15   0 START        
+ 16   0              ; Initialize game
+ 17   0              :LOAD       SCORE        00           
+ 18   1              :LOAD       POSITION     04           ; Start in middle
+ 19   2              
+ 20   2              ; Display welcome message
+ 21   2              :LOAD       DISPLAY      57           ; 'W'
+ 22   3              :OUTPUT     DISPLAY      RS232        
+ 23   4              :LOAD       DISPLAY      45           ; 'E'
+ 24   5              :OUTPUT     DISPLAY      RS232        
+ 25   6              :LOAD       DISPLAY      4C           ; 'L'
+ 26   7              :OUTPUT     DISPLAY      RS232        
+ 27   8              :LOAD       DISPLAY      0D           ; CR
+ 28   9              :OUTPUT     DISPLAY      RS232        
+ 29   A              :LOAD       DISPLAY      0A           ; LF
+ 30   B              :OUTPUT     DISPLAY      RS232        
+ 31   C              
+ 32   C GAME_LOOP    
+ 33   C              ; Draw current position
+ 34   C              :CALL       DRAW_LINE    
+ 35   D              
+ 36   D              ; Get input
+ 37   D              :INPUT      INPUT        RS232        
+ 38   E              
+ 39   E              ; Check input
+ 40   E              :LOAD       TEMP         INPUT        
+ 41   F              :SUB        TEMP         QUIT_KEY     
+ 42  10              :JUMP       Z            GAME_OVER    
+ 43  11              
+ 44  11              :LOAD       TEMP         INPUT        
+ 45  12              :SUB        TEMP         LEFT_KEY     
+ 46  13              :JUMP       Z            MOVE_LEFT    
+ 47  14              
+ 48  14              :LOAD       TEMP         INPUT        
+ 49  15              :SUB        TEMP         RIGHT_KEY    
+ 50  16              :JUMP       Z            MOVE_RIGHT   
+ 51  17              
+ 52  17              :JUMP       GAME_LOOP    
+ 53  18              
+ 54  18 MOVE_LEFT    
+ 55  18              :LOAD       TEMP         POSITION     
+ 56  19              :SUB        TEMP         01           
+ 57  1A              :JUMP       C            GAME_LOOP    ; Don't move if at left edge
+ 58  1B              :LOAD       POSITION     TEMP         
+ 59  1C              :JUMP       GAME_LOOP    
+ 60  1D              
+ 61  1D MOVE_RIGHT   
+ 62  1D              :LOAD       TEMP         POSITION     
+ 63  1E              :ADD        TEMP         01           
+ 64  1F              :SUB        TEMP         09           ; Check if beyond right edge
+ 65  20              :JUMP       NC           GAME_LOOP    ; Don't move if at right edge
+ 66  21              :ADD        POSITION     01           
+ 67  22              :JUMP       GAME_LOOP    
+ 68  23              
+ 69  23 DRAW_LINE    
+ 70  23              :LOAD       TEMP         00           ; Counter
+ 71  24 DRAW_LOOP    
+ 72  24              :LOAD       DISPLAY      2D           ; '-'
+ 73  25              :LOAD       TEMP2        TEMP         
+ 74  26              :SUB        TEMP2        POSITION     
+ 75  27              :JUMP       NZ           DRAW_DASH    
+ 76  28              :LOAD       DISPLAY      4F           ; 'O'
+ 77  29 DRAW_DASH    
+ 78  29              :OUTPUT     DISPLAY      RS232        
+ 79  2A              :ADD        TEMP         01           
+ 80  2B              :SUB        TEMP         09           
+ 81  2C              :JUMP       NZ           DRAW_LOOP    
+ 82  2D              
+ 83  2D              :LOAD       DISPLAY      0D           ; CR
+ 84  2E              :OUTPUT     DISPLAY      RS232        
+ 85  2F              :LOAD       DISPLAY      0A           ; LF
+ 86  30              :OUTPUT     DISPLAY      RS232        
+ 87  31              :RETURN     
+ 88  32              
+ 89  32 GAME_OVER    
+ 90  32              ; Display game over message
+ 91  32              :LOAD       DISPLAY      58           ; 'X'
+ 92  33              :OUTPUT     DISPLAY      RS232        
+ 93  34              :LOAD       DISPLAY      0D           ; CR
+ 94  35              :OUTPUT     DISPLAY      RS232        
+ 95  36              :LOAD       DISPLAY      0A           ; LF
+ 96  37              :OUTPUT     DISPLAY      RS232        
+ 97  38              
+ 98  38              ; Display score
+ 99  38              :LOAD       DISPLAY      SCORE        
+100  39              :ADD        DISPLAY      30           ; Convert to ASCII
+101  3A              :OUTPUT     DISPLAY      RS232        
+102  3B              
+103  3B END_PROGRAM  
+104  3B              :JUMP       END_PROGRAM  
