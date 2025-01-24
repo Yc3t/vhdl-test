@@ -15,7 +15,6 @@
             NAMEREG s4, cont1       ; Delay counter 1
             NAMEREG s5, cont2       ; Delay counter 2
             NAMEREG s6, secret      ; Secret number to guess
-            NAMEREG s7, counter     ; Simple counter for pseudo-random number
             
             ADDRESS 00              ; Program starts at address 00
 
@@ -23,66 +22,27 @@
             ; Program start
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             DISABLE INTERRUPT
-            
+start:      CALL recibe            ; Wait for start character
+
             ; Initialize game
-start:      LOAD counter, 00        ; Initialize counter
             LOAD secret, 05         ; Initial secret number
 
             ; Send welcome message
-            LOAD txreg, 35          ; '5' (ASCII 53)
+            LOAD txreg, 35          ; '5'
             CALL transmite
-            LOAD txreg, 32          ; '2' (ASCII 50)
+            LOAD txreg, 32          ; '2'
             CALL transmite
-            LOAD txreg, 13          ; CR
+            LOAD txreg, 0D          ; CR
             CALL transmite
-            LOAD txreg, 10          ; LF
+            LOAD txreg, 0A          ; LF
             CALL transmite
-            
-            ENABLE INTERRUPT        ; Enable interrupts and wait
-wait_input: JUMP wait_input        ; Loop until interrupt
 
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            ; Game processing routine
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-process_input:
-            SUB rxreg, 48          ; Convert ASCII to number
-            
-            ; Compare with secret
-            LOAD s0, rxreg
-            COMPARE: SUB s0, secret
-            JUMP Z, correct
-            JUMP C, too_low
-            
-too_high:   LOAD txreg, 72         ; 'H'
-            CALL transmite
-            LOAD txreg, 13          ; CR
-            CALL transmite
-            LOAD txreg, 10          ; LF
-            CALL transmite
-            RETURNI ENABLE
-            
-too_low:    LOAD txreg, 76         ; 'L'
-            CALL transmite
-            LOAD txreg, 13          ; CR
-            CALL transmite
-            LOAD txreg, 10          ; LF
-            CALL transmite
-            RETURNI ENABLE
-            
-correct:    LOAD txreg, 42         ; '*' (ASCII 42)
-            CALL transmite
-            LOAD txreg, 13          ; CR
-            CALL transmite
-            LOAD txreg, 10          ; LF
-            CALL transmite
-            
-            ; Generate new secret number for next game
-            ADD counter, 01
-            AND counter, 07         ; Keep in range 0-7
-            LOAD secret, counter
-            ADD secret, 01         ; Make sure it's not 0
-            
-            JUMP start             ; Start new game
+            ENABLE INTERRUPT
+bucle1:     LOAD s6, 09            ; Main program loop
+bucle2:     SUB s6, 01             ; like in programa_helloworld_int.asm
+            JUMP NZ, bucle2
+            LOAD s6, 09
+            JUMP bucle2
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character reception routine
@@ -153,4 +113,30 @@ espera3:    SUB cont2, 01
             ADDRESS FF
 interrup:   DISABLE INTERRUPT
             CALL recibe
-            JUMP process_input
+            SUB rxreg, 48          ; Convert ASCII to number
+            
+            ; Compare with secret
+            LOAD s0, rxreg
+            SUB s0, secret
+            JUMP Z, win
+            JUMP C, low
+
+high:       LOAD txreg, 72         ; 'H'
+            CALL transmite
+            JUMP end_isr
+
+low:        LOAD txreg, 76         ; 'L'
+            CALL transmite
+            JUMP end_isr
+
+win:        LOAD txreg, 42         ; '*'
+            CALL transmite
+            ADD secret, 01         ; Change secret number
+            AND secret, 07
+            ADD secret, 01
+
+end_isr:    LOAD txreg, 0D         ; CR
+            CALL transmite
+            LOAD txreg, 0A         ; LF
+            CALL transmite
+            RETURNI ENABLE

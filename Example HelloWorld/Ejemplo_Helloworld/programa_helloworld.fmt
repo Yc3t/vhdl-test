@@ -15,142 +15,128 @@
  15   0              :NAMEREG    S4           CONT1        ; Delay counter 1
  16   0              :NAMEREG    S5           CONT2        ; Delay counter 2
  17   0              :NAMEREG    S6           SECRET       ; Secret number to guess
- 18   0              :NAMEREG    S7           COUNTER      ; Simple counter for pseudo-random number
- 19   0              
- 20   0              :ADDRESS    00           ; Program starts at address 00
- 21   0              
- 22   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 23   0              ; Program start
- 24   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 25   0              :DISABLE    INTERRUPT    
- 26   1              
- 27   1              ; Initialize game
- 28   1 START        :LOAD       COUNTER      00           ; Initialize counter
- 29   2              :LOAD       SECRET       05           ; Initial secret number
- 30   3              
- 31   3              ; Send welcome message
- 32   3              :LOAD       TXREG        35           ; '5' (ASCII 53)
- 33   4              :CALL       TRANSMITE    
- 34   5              :LOAD       TXREG        32           ; '2' (ASCII 50)
- 35   6              :CALL       TRANSMITE    
- 36   7              :LOAD       TXREG        13           ; CR
- 37   8              :CALL       TRANSMITE    
- 38   9              :LOAD       TXREG        10           ; LF
- 39   A              :CALL       TRANSMITE    
- 40   B              
- 41   B              :ENABLE     INTERRUPT    ; Enable interrupts and wait
- 42   C WAIT_INPUT   :JUMP       WAIT_INPUT   ; Loop until interrupt
- 43   D              
- 44   D              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 45   D              ; Game processing routine
- 46   D              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 47   D PROCESS_INPUT 
- 48   D              :SUB        RXREG        48           ; Convert ASCII to number
- 49   E              
- 50   E              ; Compare with secret
- 51   E              :LOAD       S0           RXREG        
- 52   F COMPARE      :SUB        S0           SECRET       
- 53  10              :JUMP       Z            CORRECT      
- 54  11              :JUMP       C            TOO_LOW      
- 55  12              
- 56  12 TOO_HIGH     :LOAD       TXREG        72           ; 'H'
- 57  13              :CALL       TRANSMITE    
- 58  14              :LOAD       TXREG        13           ; CR
- 59  15              :CALL       TRANSMITE    
- 60  16              :LOAD       TXREG        10           ; LF
- 61  17              :CALL       TRANSMITE    
- 62  18              :RETURNI    ENABLE       
- 63  19              
- 64  19 TOO_LOW      :LOAD       TXREG        76           ; 'L'
- 65  1A              :CALL       TRANSMITE    
- 66  1B              :LOAD       TXREG        13           ; CR
- 67  1C              :CALL       TRANSMITE    
- 68  1D              :LOAD       TXREG        10           ; LF
- 69  1E              :CALL       TRANSMITE    
- 70  1F              :RETURNI    ENABLE       
- 71  20              
- 72  20 CORRECT      :LOAD       TXREG        42           ; '*' (ASCII 42)
- 73  21              :CALL       TRANSMITE    
- 74  22              :LOAD       TXREG        13           ; CR
- 75  23              :CALL       TRANSMITE    
- 76  24              :LOAD       TXREG        10           ; LF
- 77  25              :CALL       TRANSMITE    
- 78  26              
- 79  26              ; Generate new secret number for next game
- 80  26              :ADD        COUNTER      01           
- 81  27              :AND        COUNTER      07           ; Keep in range 0-7
- 82  28              :LOAD       SECRET       COUNTER      
- 83  29              :ADD        SECRET       01           ; Make sure it's not 0
- 84  2A              
- 85  2A              :JUMP       START        ; Start new game
- 86  2B              
- 87  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 88  2B              ; Character reception routine
- 89  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 90  2B RECIBE       ; Wait for start bit
- 91  2B              :INPUT      RXREG        RS232        
- 92  2C              :AND        RXREG        80           
- 93  2D              :JUMP       NZ           RECIBE       
- 94  2E              :CALL       WAIT_05BIT   
- 95  2F              ; Store 8 data bits
- 96  2F              :LOAD       CONTBIT      09           
- 97  30 NEXT_RX_BIT  
- 98  30              :CALL       WAIT_1BIT    
- 99  31              :SR0        RXREG        
-100  32              :INPUT      S0           RS232        
-101  33              :AND        S0           80           
-102  34              :OR         RXREG        S0           
-103  35              :SUB        CONTBIT      01           
-104  36              :JUMP       NZ           NEXT_RX_BIT  
-105  37              :RETURN     
-106  38              
-107  38              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-108  38              ; Character transmission routine
-109  38              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-110  38 TRANSMITE    ; Send start bit
-111  38              :LOAD       S0           00           
-112  39              :OUTPUT     S0           RS232        
-113  3A              :CALL       WAIT_1BIT    
-114  3B              ; Send 8 data bits
-115  3B              :LOAD       CONTBIT      08           
-116  3C NEXT_TX_BIT  
-117  3C              :OUTPUT     TXREG        RS232        
-118  3D              :CALL       WAIT_1BIT    
-119  3E              :SR0        TXREG        
-120  3F              :SUB        CONTBIT      01           
-121  40              :JUMP       NZ           NEXT_TX_BIT  
-122  41              ; Send stop bit
-123  41              :LOAD       S0           FF           
-124  42              :OUTPUT     S0           RS232        
-125  43              :CALL       WAIT_1BIT    
-126  44              :RETURN     
-127  45              
-128  45              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-129  45              ; 1-bit wait routine (115200 bps)
-130  45              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-131  45 WAIT_1BIT    :LOAD       CONT1        03           
-132  46 ESPERA2      :LOAD       CONT2        22           
-133  47 ESPERA1      :SUB        CONT2        01           
-134  48              :JUMP       NZ           ESPERA1      
-135  49              :SUB        CONT1        01           
-136  4A              :JUMP       NZ           ESPERA2      
-137  4B              :RETURN     
-138  4C              
-139  4C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-140  4C              ; 0.5-bit wait routine (115200 bps)
-141  4C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-142  4C WAIT_05BIT   :LOAD       CONT1        03           
-143  4D ESPERA4      :LOAD       CONT2        10           
-144  4E ESPERA3      :SUB        CONT2        01           
-145  4F              :JUMP       NZ           ESPERA3      
-146  50              :SUB        CONT1        01           
-147  51              :JUMP       NZ           ESPERA4      
-148  52              :RETURN     
-149  53              
-150  53              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-151  53              ; Interrupt Service Routine
-152  53              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-153  FF              :ADDRESS    FF           
-154  FF INTERRUP     :DISABLE    INTERRUPT    
-155 100              :CALL       RECIBE       
-156 101              :JUMP       PROCESS_INPUT 
+ 18   0              
+ 19   0              :ADDRESS    00           ; Program starts at address 00
+ 20   0              
+ 21   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 22   0              ; Program start
+ 23   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 24   0              :DISABLE    INTERRUPT    
+ 25   1 START        :CALL       RECIBE       ; Wait for start character
+ 26   2              
+ 27   2              ; Initialize game
+ 28   2              :LOAD       SECRET       05           ; Initial secret number
+ 29   3              
+ 30   3              ; Send welcome message
+ 31   3              :LOAD       TXREG        35           ; '5'
+ 32   4              :CALL       TRANSMITE    
+ 33   5              :LOAD       TXREG        32           ; '2'
+ 34   6              :CALL       TRANSMITE    
+ 35   7              :LOAD       TXREG        0D           ; CR
+ 36   8              :CALL       TRANSMITE    
+ 37   9              :LOAD       TXREG        0A           ; LF
+ 38   A              :CALL       TRANSMITE    
+ 39   B              
+ 40   B              :ENABLE     INTERRUPT    
+ 41   C BUCLE1       :LOAD       S6           09           ; Main program loop
+ 42   D BUCLE2       :SUB        S6           01           ; like in programa_helloworld_int.asm
+ 43   E              :JUMP       NZ           BUCLE2       
+ 44   F              :LOAD       S6           09           
+ 45  10              :JUMP       BUCLE2       
+ 46  11              
+ 47  11              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 48  11              ; Character reception routine
+ 49  11              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 50  11 RECIBE       ; Wait for start bit
+ 51  11              :INPUT      RXREG        RS232        
+ 52  12              :AND        RXREG        80           
+ 53  13              :JUMP       NZ           RECIBE       
+ 54  14              :CALL       WAIT_05BIT   
+ 55  15              ; Store 8 data bits
+ 56  15              :LOAD       CONTBIT      09           
+ 57  16 NEXT_RX_BIT  
+ 58  16              :CALL       WAIT_1BIT    
+ 59  17              :SR0        RXREG        
+ 60  18              :INPUT      S0           RS232        
+ 61  19              :AND        S0           80           
+ 62  1A              :OR         RXREG        S0           
+ 63  1B              :SUB        CONTBIT      01           
+ 64  1C              :JUMP       NZ           NEXT_RX_BIT  
+ 65  1D              :RETURN     
+ 66  1E              
+ 67  1E              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 68  1E              ; Character transmission routine
+ 69  1E              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 70  1E TRANSMITE    ; Send start bit
+ 71  1E              :LOAD       S0           00           
+ 72  1F              :OUTPUT     S0           RS232        
+ 73  20              :CALL       WAIT_1BIT    
+ 74  21              ; Send 8 data bits
+ 75  21              :LOAD       CONTBIT      08           
+ 76  22 NEXT_TX_BIT  
+ 77  22              :OUTPUT     TXREG        RS232        
+ 78  23              :CALL       WAIT_1BIT    
+ 79  24              :SR0        TXREG        
+ 80  25              :SUB        CONTBIT      01           
+ 81  26              :JUMP       NZ           NEXT_TX_BIT  
+ 82  27              ; Send stop bit
+ 83  27              :LOAD       S0           FF           
+ 84  28              :OUTPUT     S0           RS232        
+ 85  29              :CALL       WAIT_1BIT    
+ 86  2A              :RETURN     
+ 87  2B              
+ 88  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 89  2B              ; 1-bit wait routine (115200 bps)
+ 90  2B              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 91  2B WAIT_1BIT    :LOAD       CONT1        03           
+ 92  2C ESPERA2      :LOAD       CONT2        22           
+ 93  2D ESPERA1      :SUB        CONT2        01           
+ 94  2E              :JUMP       NZ           ESPERA1      
+ 95  2F              :SUB        CONT1        01           
+ 96  30              :JUMP       NZ           ESPERA2      
+ 97  31              :RETURN     
+ 98  32              
+ 99  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+100  32              ; 0.5-bit wait routine (115200 bps)
+101  32              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+102  32 WAIT_05BIT   :LOAD       CONT1        03           
+103  33 ESPERA4      :LOAD       CONT2        10           
+104  34 ESPERA3      :SUB        CONT2        01           
+105  35              :JUMP       NZ           ESPERA3      
+106  36              :SUB        CONT1        01           
+107  37              :JUMP       NZ           ESPERA4      
+108  38              :RETURN     
+109  39              
+110  39              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+111  39              ; Interrupt Service Routine
+112  39              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+113  FF              :ADDRESS    FF           
+114  FF INTERRUP     :DISABLE    INTERRUPT    
+115 100              :CALL       RECIBE       
+116 101              :SUB        RXREG        48           ; Convert ASCII to number
+117 102              
+118 102              ; Compare with secret
+119 102              :LOAD       S0           RXREG        
+120 103              :SUB        S0           SECRET       
+121 104              :JUMP       Z            WIN          
+122 105              :JUMP       C            LOW          
+123 106              
+124 106 HIGH         :LOAD       TXREG        72           ; 'H'
+125 107              :CALL       TRANSMITE    
+126 108              :JUMP       END_ISR      
+127 109              
+128 109 LOW          :LOAD       TXREG        76           ; 'L'
+129 10A              :CALL       TRANSMITE    
+130 10B              :JUMP       END_ISR      
+131 10C              
+132 10C WIN          :LOAD       TXREG        42           ; '*'
+133 10D              :CALL       TRANSMITE    
+134 10E              :ADD        SECRET       01           ; Change secret number
+135 10F              :AND        SECRET       07           
+136 110              :ADD        SECRET       01           
+137 111              
+138 111 END_ISR      :LOAD       TXREG        0D           ; CR
+139 112              :CALL       TRANSMITE    
+140 113              :LOAD       TXREG        0A           ; LF
+141 114              :CALL       TRANSMITE    
+142 115              :RETURNI    ENABLE       
