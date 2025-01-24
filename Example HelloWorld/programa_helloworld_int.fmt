@@ -1,155 +1,172 @@
   1   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   2   0              ;                 
-  3   0              ;Transmision RS-232 por software. 
-  4   0              ;115200bps, 8 data bits, no parity, 1 stop bit, no flow control,
-  5   0              ;parte1: transmite por el puerte serie el contenido de la memoria RAM (64 bytes, portid [0-63])
-  6   0              ;parte2: genera numeros pseudo-aleatorios, bucle contador+interrupcion para transmitir numero.
-  7   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  8   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  9   0              ;declaracion de constantes y variables
- 10   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                  
- 11   0              :CONSTANT   RS232        FF           ; puerto comunicacion serie es el FF
- 12   0              ; rx es el bit 0 del puerto FF(entrada)
- 13   0              ; tx es el bit 7 del puerto FF(salida), esto es porque
- 14   0              ;el hyperterminal envia primero el LSB, por eso vamos desplazando a la 
- 15   0              ;izquierda al recibir, y al enviar tambien, con lo que enviamos de nuevo
- 16   0              ;el LSB primero como corresponde para que lo entienda el hyperterminal
- 17   0              :NAMEREG    S1           TXREG        ;buffer de transmision
- 18   0              :NAMEREG    S2           RXREG        ;buffer de recepcion
- 19   0              :NAMEREG    S3           CONTBIT      ;contador de los 8 bits de datos
- 20   0              :NAMEREG    S4           CONT1        ;contador de retardo1
- 21   0              :NAMEREG    S5           CONT2        ;contador de retardo2
- 22   0              ;
- 23   0              :ADDRESS    00           ;el programa se cargara a partir de la dir 00
- 24   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 25   0              ;Inicio del programa
- 26   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 27   0              :DISABLE    INTERRUPT    
- 28   1 START        :CALL       RECIBE       
- 29   2              ;Instrucciones para la parte1
- 30   2              :LOAD       S7           00           
- 31   3 PARTE1       :INPUT      TXREG        S7           
- 32   4              :ADD        TXREG        00           
- 33   5              :JUMP       Z            PARTE2       
- 34   6              :CALL       TRANSMITE    
- 35   7              :ADD        S7           01           
- 36   8              :JUMP       PARTE1       
- 37   9              ;Instrucciones para la parte2
- 38   9 PARTE2       :ENABLE     INTERRUPT    
- 39   A BUCLE1       :LOAD       S6           09           
- 40   B BUCLE2       :SUB        S6           01           
- 41   C              :JUMP       NZ           BUCLE2       
- 42   D              :LOAD       S6           09           
- 43   E              :JUMP       BUCLE2       
- 44   F              
- 45   F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 46   F              ;Rutina de recepcion de caracteres
- 47   F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 48   F RECIBE       ;esperamos a que se reciba un bit de inicio
- 49   F              :INPUT      RXREG        RS232        
- 50  10              :AND        RXREG        80           
- 51  11              :JUMP       NZ           RECIBE       
- 52  12              :CALL       WAIT_05BIT   
- 53  13              ;almacenamos los 8 bits de datos
- 54  13              :LOAD       CONTBIT      09           
- 55  14 NEXT_RX_BIT  :CALL       WAIT_1BIT    
- 56  15              :SR0        RXREG        
- 57  16              :INPUT      S0           RS232        
- 58  17              :AND        S0           80           
- 59  18              :OR         RXREG        S0           
- 60  19              :SUB        CONTBIT      01           
- 61  1A              :JUMP       NZ           NEXT_RX_BIT  
- 62  1B              :RETURN     
- 63  1C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 64  1C              ;Rutina de transmision de caracteres
- 65  1C              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 66  1C TRANSMITE    ;enviamos un bit de inicio
- 67  1C              :LOAD       S0           00           
- 68  1D              :OUTPUT     S0           RS232        
- 69  1E              :CALL       WAIT_1BIT    
- 70  1F              ;enviamos los 8 bits de datos
- 71  1F              :LOAD       CONTBIT      08           
- 72  20 NEXT_TX_BIT  :OUTPUT     TXREG        RS232        
- 73  21              :CALL       WAIT_1BIT    
- 74  22              :SR0        TXREG        
- 75  23              :SUB        CONTBIT      01           
- 76  24              :JUMP       NZ           NEXT_TX_BIT  
- 77  25              ;enviamos un bit de parada
- 78  25              :LOAD       S0           FF           
- 79  26              :OUTPUT     S0           RS232        
- 80  27              :CALL       WAIT_1BIT    
- 81  28              :RETURN     
- 82  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 83  29              ;Rutina espera 1 bit (a 9600bps)
- 84  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 85  29              ;clk=50MHz, 9600bps, cont1=0A, cont2=80
- 86  29              ;esta rutina ejecuta 1 + (1 + 10*(1 + 128*2 + 2)) + 1 = 2593 instruciones,
- 87  29              ;aproximandose al numero teorico de (104,16us/bit)/(0,04 us/instruc) = 2604,166 instr/bit necesarias.
- 88  29              ;clk=40MHz, 57600bps, cont1=05, cont2=21
- 89  29              ;esta rutina ejecuta 1 + (1 + 5*(1 + 33*2 + 2)) + 1 =  instruciones,
- 90  29              ;aproximandose al numero teorico de (17,36us/bit)/(0,05 us/instruc) = 347,2 instr/bit necesarias.
- 91  29              ;clk=50MHz, 115200bps, cont1=03, cont2=22
- 92  29              ;esta rutina ejecuta 1 + (1 + 3*(1 + 34*2 + 2)) + 1 = 216 instruciones,
- 93  29              ;aproximandose al numero teorico de (8,68us/bit)/(0,04 us/instruc) = 217 instr/bit necesarias.
- 94  29              ;clk=50MHz, 230400bps, cont1= 03, cont2= 10
- 95  29              ;esta rutina ejecuta 1 + (1 + 3*(1 + 16*2 + 2)) + 1 = 108 instruciones,
- 96  29              ;aproximandose al numero teorico de (4,34us/bit)/(0,04 us/instruc) = 108,5 instr/bit necesarias.
- 97  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 98  29              ;OJO: con el USB2COM no he conseguido pasar de los 230400bps bien. 
- 99  29              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-100  29              ;clk=50MHz, 460800bps, cont1= 03, cont2=06 OJO:Hay que ponerle 1 menos a cont2 y que tome 
-101  29              ;caracteres ascii de 7 bits para que funcione.
-102  29              ;esta rutina ejecuta 1 + (1 + 3*(1 + 7*2 + 2)) + 1 = 54 instruciones,
-103  29              ;aproximandose al numero teorico de (2,17us/bit)/(0,04 us/instruc) = 54,25 instr/bit necesarias.
-104  29              ;clk=50MHz, 921600bps, cont1=01, cont2=0A NO FUNCIONA
-105  29              ;esta rutina ejecuta 1 + (1 + 1*(1 + 10*2 + 2)) + 1 = 26 instruciones,
-106  29              ;aproximandose al numero teorico de (1,085us/bit)/(0,04 us/instruc) = 27,127 instr/bit necesarias.
-107  29 WAIT_1BIT    :LOAD       CONT1        08           
-108  2A ESPERA2      :LOAD       CONT2        55           
-109  2B ESPERA1      :SUB        CONT2        01           
-110  2C              :JUMP       NZ           ESPERA1      
-111  2D              :SUB        CONT1        01           
-112  2E              :JUMP       NZ           ESPERA2      
-113  2F              :RETURN     
-114  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-115  30              ;Rutina espera 0,5 bits (bit de inicio, a 9600bps)
-116  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-117  30              ;clk=50MHz, 9600bps, cont1=05, cont2=80
-118  30              ;1 + (1 + 5*(1 + 128*2 + 2)) + 1 = 1298; aprox = 1302
-119  30              ;clk=40MHz, 57600bps, cont1=03, cont2=1B
-120  30              ;1 + (1 + 3*(1 + 27*2 + 2)) + 1 = 1298; aprox = 173.6
-121  30              ;clk=50MHz, 115200bps, cont1=03, cont2=10
-122  30              ;1 + (1 + 3*(1 + 16*2 + 2)) + 1 = 108; aprox = 108.5
-123  30              ;clk=50MHz, 230400bps, cont1= 03, cont2= 07
-124  30              ;1 + (1 + 3*(1 + 7*2 + 2)) + 1 = 54; aprox = 54,25
-125  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-126  30              ;OJO: con el USB2COM no he conseguido pasar de los 230400bps bien. 
-127  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-128  30              ;clk=50MHz, 460800bps, cont1= 01, cont2= 0A
-129  30              ;1 + (1 + 1*(1 + 10*2 + 2)) + 1 = 26; aprox = 27,125
-130  30              ;clk=50MHz, 921600bps, cont1=01, cont2=04 NO FUNCIONA
-131  30              ;1 + (1 + 1*(1 + 4*2 + 2)) + 1 = 14; aprox = 13,56
-132  30 WAIT_05BIT   :LOAD       CONT1        04           
-133  31 ESPERA4      :LOAD       CONT2        55           
-134  32 ESPERA3      :SUB        CONT2        01           
-135  33              :JUMP       NZ           ESPERA3      
-136  34              :SUB        CONT1        01           
-137  35              :JUMP       NZ           ESPERA4      
-138  36              :RETURN     
-139  37              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-140  37              ; FIN
-141  37              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-142  37              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-143  37              ; RUTINA DE ATENCION A LA INTERRUPCI N
-144  37              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-145  37 INTERRUP     :DISABLE    INTERRUPT    
-146  38              :CALL       RECIBE       
-147  39              :LOAD       TXREG        RXREG        
-148  3A              :CALL       TRANSMITE    
-149  3B              :ADD        S6           30           
-150  3C              :LOAD       TXREG        S6           
-151  3D              :CALL       TRANSMITE    
-152  3E              :RETURNI    ENABLE       
-153  FF              :ADDRESS    FF           
-154  FF              :JUMP       INTERRUP     
-155 100              
+  3   0              ; Higher/Lower Guessing Game
+  4   0              ; 115200bps, 8 data bits, no parity, 1 stop bit, no flow control
+  5   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  6   0              
+  7   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  8   0              ; Constants and variables declaration
+  9   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                  
+ 10   0              :CONSTANT   RS232        FF           ; UART port
+ 11   0              
+ 12   0              :NAMEREG    S0           TEMP         ; Temporary register
+ 13   0              :NAMEREG    S1           TXREG        ; Transmission buffer
+ 14   0              :NAMEREG    S2           RXREG        ; Reception buffer
+ 15   0              :NAMEREG    S3           CONTBIT      ; Bit counter
+ 16   0              :NAMEREG    S4           CONT1        ; Delay counter 1
+ 17   0              :NAMEREG    S5           CONT2        ; Delay counter 2
+ 18   0              :NAMEREG    S6           CURRENT      ; Current number
+ 19   0              :NAMEREG    S7           NEXT         ; Next number
+ 20   0              
+ 21   0              :ADDRESS    00           ; Program starts at address 00
+ 22   0              
+ 23   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 24   0              ; Program start
+ 25   0              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 26   0              :DISABLE    INTERRUPT    
+ 27   1              
+ 28   1 START        :LOAD       CURRENT      01           ; Initial number
+ 29   2              
+ 30   2 NEW_ROUND    
+ 31   2              ; Send current number
+ 32   2              :LOAD       TXREG        CURRENT      
+ 33   3              :ADD        TXREG        30           ; Convert to ASCII
+ 34   4              :CALL       TRANSMITE    
+ 35   5              :LOAD       TXREG        0D           ; CR
+ 36   6              :CALL       TRANSMITE    
+ 37   7              :LOAD       TXREG        0A           ; LF
+ 38   8              :CALL       TRANSMITE    
+ 39   9              
+ 40   9              ; Generate next number
+ 41   9              :LOAD       TEMP         CURRENT      
+ 42   A              :ADD        TEMP         43           ; Some "random" operation
+ 43   B              :AND        TEMP         07           ; Keep it within 0-7
+ 44   C              :ADD        TEMP         01           ; Make it 1-8
+ 45   D              :LOAD       NEXT         TEMP         
+ 46   E              
+ 47   E              :ENABLE     INTERRUPT    ; Wait for player input
+ 48   F              
+ 49   F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 50   F              ; Main program loop
+ 51   F              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 52   F MAIN_LOOP    
+ 53   F              :LOAD       CONT1        FF           ; Some delay
+ 54  10 LOOP1        :LOAD       CONT2        FF           
+ 55  11 LOOP2        :SUB        CONT2        01           
+ 56  12              :JUMP       NZ           LOOP2        
+ 57  13              :SUB        CONT1        01           
+ 58  14              :JUMP       NZ           LOOP1        
+ 59  15              :JUMP       MAIN_LOOP    ; Loop forever
+ 60  16              
+ 61  16              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 62  16              ; Character reception routine
+ 63  16              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 64  16 RECIBE       :INPUT      RXREG        RS232        
+ 65  17              :AND        RXREG        80           
+ 66  18              :JUMP       NZ           RECIBE       
+ 67  19              :CALL       WAIT_05BIT   
+ 68  1A              :LOAD       CONTBIT      09           
+ 69  1B NEXT_RX_BIT  
+ 70  1B              :CALL       WAIT_1BIT    
+ 71  1C              :SR0        RXREG        
+ 72  1D              :INPUT      TEMP         RS232        
+ 73  1E              :AND        TEMP         80           
+ 74  1F              :OR         RXREG        TEMP         
+ 75  20              :SUB        CONTBIT      01           
+ 76  21              :JUMP       NZ           NEXT_RX_BIT  
+ 77  22              :RETURN     
+ 78  23              
+ 79  23              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 80  23              ; Character transmission routine
+ 81  23              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 82  23 TRANSMITE    
+ 83  23              :LOAD       TEMP         00           
+ 84  24              :OUTPUT     TEMP         RS232        
+ 85  25              :CALL       WAIT_1BIT    
+ 86  26              :LOAD       CONTBIT      08           
+ 87  27 NEXT_TX_BIT  
+ 88  27              :OUTPUT     TXREG        RS232        
+ 89  28              :CALL       WAIT_1BIT    
+ 90  29              :SR0        TXREG        
+ 91  2A              :SUB        CONTBIT      01           
+ 92  2B              :JUMP       NZ           NEXT_TX_BIT  
+ 93  2C              :LOAD       TEMP         FF           
+ 94  2D              :OUTPUT     TEMP         RS232        
+ 95  2E              :CALL       WAIT_1BIT    
+ 96  2F              :RETURN     
+ 97  30              
+ 98  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 99  30              ; Timing routines
+100  30              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+101  30 WAIT_1BIT    
+102  30              :LOAD       CONT1        03           
+103  31 ESPERA2      
+104  31              :LOAD       CONT2        22           
+105  32 ESPERA1      
+106  32              :SUB        CONT2        01           
+107  33              :JUMP       NZ           ESPERA1      
+108  34              :SUB        CONT1        01           
+109  35              :JUMP       NZ           ESPERA2      
+110  36              :RETURN     
+111  37              
+112  37 WAIT_05BIT   
+113  37              :LOAD       CONT1        03           
+114  38 ESPERA4      
+115  38              :LOAD       CONT2        10           
+116  39 ESPERA3      
+117  39              :SUB        CONT2        01           
+118  3A              :JUMP       NZ           ESPERA3      
+119  3B              :SUB        CONT1        01           
+120  3C              :JUMP       NZ           ESPERA4      
+121  3D              :RETURN     
+122  3E              
+123  3E              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+124  3E              ; Interrupt Service Routine
+125  3E              ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+126  FF              :ADDRESS    FF           
+127  FF ISR          :DISABLE    INTERRUPT    
+128 100              :CALL       RECIBE       ; Get player's guess
+129 101              
+130 101              ; Echo received character
+131 101              :LOAD       TXREG        RXREG        
+132 102              :CALL       TRANSMITE    
+133 103              
+134 103              ; Check if guess is correct
+135 103              :LOAD       TEMP         RXREG        
+136 104              :SUB        TEMP         48           ; Convert from ASCII '0'
+137 105              
+138 105              :LOAD       S0           CURRENT      
+139 106              :SUB        S0           NEXT         
+140 107              :JUMP       Z            TIE          
+141 108              
+142 108              :JUMP       NC           HIGH_GUESS   
+143 109              ; Low guess
+144 109              :SUB        TEMP         02           ; Check if guess was '2' (lower)
+145 10A              :JUMP       NZ           WRONG        
+146 10B              :JUMP       WIN          
+147 10C              
+148 10C HIGH_GUESS   
+149 10C              ; High guess
+150 10C              :SUB        TEMP         01           ; Check if guess was '1' (higher)
+151 10D              :JUMP       NZ           WRONG        
+152 10E              :JUMP       WIN          
+153 10F              
+154 10F WRONG        :LOAD       TXREG        45           ; 'X'
+155 110              :CALL       TRANSMITE    
+156 111              :JUMP       END_ISR      
+157 112              
+158 112 WIN          :LOAD       TXREG        43           ; 'O'
+159 113              :CALL       TRANSMITE    
+160 114              :JUMP       END_ISR      
+161 115              
+162 115 TIE          :LOAD       TXREG        3D           ; '='
+163 116              :CALL       TRANSMITE    
+164 117              :JUMP       END_ISR      
+165 118              
+166 118 END_ISR      
+167 118              :LOAD       TXREG        0D           ; CR
+168 119              :CALL       TRANSMITE    
+169 11A              :LOAD       TXREG        0A           ; LF
+170 11B              :CALL       TRANSMITE    
+171 11C              :LOAD       CURRENT      NEXT         ; Update current number
+172 11D              :JUMP       NEW_ROUND    
