@@ -23,9 +23,11 @@
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Program start
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-start:      LOAD test_data, 00         ; Initialize test pattern
+start:      CALL recibe                ; Wait for character input
+            LOAD test_data, rxreg       ; Use received character as test data
+            AND test_data, 0F          ; Mask to 4 bits
             
-test_loop:  ; Send test pattern marker
+            ; Send test pattern marker
             LOAD txreg, 54              ; Send 'T' character (ASCII 54h = 'T')
             CALL transmite
             LOAD txreg, 3A              ; Send ':' character (ASCII 3Ah = ':')
@@ -45,19 +47,7 @@ test_loop:  ; Send test pattern marker
             LOAD txreg, 0A             ; Line feed
             CALL transmite
             
-            ; Increment test pattern
-            ADD test_data, 01
-            AND test_data, 0F          ; Keep in 4-bit range
-            
-            ; Delay between tests
-            LOAD cont1, FF
-delay1:     LOAD cont2, FF
-delay2:     SUB cont2, 01
-            JUMP NZ, delay2
-            SUB cont1, 01
-            JUMP NZ, delay1
-            
-            JUMP test_loop             ; Continue with next pattern
+            JUMP start                 ; Wait for next character
 
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ; Character reception routine
